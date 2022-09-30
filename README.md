@@ -1,2 +1,2 @@
-# bot
+# XC Bot
 xc
