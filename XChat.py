@@ -3,6 +3,25 @@ import threading
 import time
 import websocket
 import ssl
+import datetime
+
+def read_file(file):
+    f = open(file, 'r')
+    nList = f.readlines()
+    f.close()
+    for i in range(len(nList)):
+        nList[i] = nList[i].strip('\n')
+    for s in nList:
+        if s == '':
+            nList.remove(s)
+    return nList
+
+
+def write_file(file, List):
+    for i in range(len(List)):
+        List[i] += '\n'
+    f = open(file, "w")
+    f.writelines(List)
 
 
 class XChat:  # 一个类
@@ -62,9 +81,9 @@ class XChat:  # 一个类
                 for function in list(self.message_function):
                     if return_more == False:
                         try:
-                            function(result["text"], result["nick"], result["trip"])
+                            function(result["text"], result["nick"], result["trip"], self.online_users)
                         except:
-                            function(result["text"], result["nick"], '      ')
+                            function(result["text"], result["nick"], '      ', self.online_users)
                     else:
                         function(result)
             elif result["cmd"] == "onlineAdd":
