@@ -145,6 +145,7 @@ def message_got(message, sender, trip, online):
             2、.bb cancel <name>: 取消BBI对<name>的保护
             3、.bb protectlist: 查看BBI的保护列表
             4、.bb lockflag: 查看锁房状态
+            5、.bb fire <name>: 将某人开除出BBI
             -----Mod -----
             1、.bb lock: 锁房
             2、.bb unlock: 解除锁房
@@ -368,7 +369,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 write_file('bbi', bbi)
                 xc.send_message("{name}加入了BBI警卫队".format(name=sender))
                 xc.send_to(sender, "你收到了BBI警卫队发来的100个BB币")
-                moneyList[nameList.index(sender)] = str(int(moneyList[nameList.index(sender)]) + 100)
+                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) + 100)
                 write_file('money', moneyList)
             else:
                 xc.send_message("@{name} 你已是BBI警卫队的成员。".format(name=sender))
@@ -378,7 +379,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 write_file('bbi', bbi)
                 xc.send_message("{name}退出了BBI警卫队".format(name=sender))
                 xc.send_to(sender, "你被扣除100个BB币")
-                moneyList[nameList.index(sender)] = str(int(moneyList[nameList.index(sender)]) - 100)
+                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) - 100)
                 write_file('money', moneyList)
             else:
                 xc.send_message("@{name} 你不是BBI警卫队的成员。".format(name=sender))
@@ -423,6 +424,17 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                     xc.send_message('锁房状态为：开启锁房')
                 else:
                     xc.send_message('锁房状态为：关闭锁房')
+            if wList[1] == 'fire':
+                name = wList[2]
+                if name not in bbi:
+                    xc.send_message('未找到此BBI警卫员')
+                else:
+                    bbi.remove(name)
+                    write_file('bbi', bbi)
+                    xc.send_message("{name}被{mod}炒了".format(name=name, mod=sender))
+                    xc.send_to(name, "你被扣除150个BB币")
+                    moneyList[nameList.index(name)] = str(eval(moneyList[nameList.index(name)]) - 150)
+                    write_file('money', moneyList)
         if trip in modTrip:
             if wList[1] == 'lock':
                 lockFlag = 1
