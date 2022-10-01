@@ -3,26 +3,6 @@ import threading
 import time
 import websocket
 import ssl
-import datetime
-
-def read_file(file):
-    f = open(file, 'r')
-    nList = f.readlines()
-    f.close()
-    for i in range(len(nList)):
-        nList[i] = nList[i].strip('\n')
-    for s in nList:
-        if s == '':
-            nList.remove(s)
-    return nList
-
-
-def write_file(file, List):
-    for i in range(len(List)):
-        List[i] += '\n'
-    f = open(file, "w")
-    f.writelines(List)
-
 
 class XChat:  # 一个类
     userset = False

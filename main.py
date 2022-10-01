@@ -4,12 +4,12 @@
 import XChat  # 引入模块
 import time, random  # 引入模块
 import _thread as thread
-import time, datetime
+import datetime
 
 
 def print_text():
     while True:
-        # time.sleep(0.9)
+        time.sleep(1)
         # print(str(datetime.datetime.now())[17:19])
         if str(datetime.datetime.now())[17:19] == '00':
             signList = read_file('sign')
@@ -17,6 +17,26 @@ def print_text():
                 signList[i] = '0'
                 # print(signList)
             write_file('sign', signList)
+        if str(datetime.datetime.now())[14:19] == '00:00':
+            nameList = read_file('name')
+            moneyList = read_file('money')
+            hour = int(str(datetime.datetime.now())[14:16])
+            if hour > 16:
+                bjHour = hour - 16
+            else:
+                bjHour = hour + 8
+            xc.send_message('''.
+            定点报时：现在是北京时间{hour}点整！
+            欢迎前往我主人的论坛：https://forum.sqj.repl.co/
+            也欢迎来我主人的mc服务器：https://mc.sqj.repl.co/
+            此外，我还要随机抽取一位幸运观众奖励100个BB币，~~然后踢出。~~
+            '''.format(hour=bjHour))
+            num = random.randint(0, len(nameList)-1)
+            kick = nameList[num]
+            moneyList[num] = str(eval(moneyList[num]) + 100)
+            write_file('money', moneyList)
+            xc.send_message('这位幸运观众就是{name}!\n@{name} 100个BB币已经汇到你的账户上了'.format(name=kick))
+            xc.send_message('^kick {name}'.format(name=kick))
 
 
 thread.start_new_thread(print_text, ())
@@ -80,7 +100,7 @@ def message_got(message, sender, trip, online):
     for a in range(len(moneyList) - 1):
         flag = 0
         for i in range(len(moneyList) - 1 - a):
-            if moneyList[i] < moneyList[i + 1]:
+            if eval(moneyList[i]) < eval(moneyList[i + 1]):
                 moneyList[i], moneyList[i + 1] = moneyList[i + 1], moneyList[i]
                 nameList[i], nameList[i + 1] = nameList[i + 1], nameList[i]
                 signList[i], signList[i + 1] = signList[i + 1], signList[i]
@@ -143,17 +163,19 @@ def message_got(message, sender, trip, online):
         if wList[1] == 'most':
             send = ''
             for i in range(5):
-                send += 'No.' + str(i + 1) + '\t' + nameList[i] + '\t' + moneyList[i] + '个BB币\n'
+                send += '|No.' + str(i + 1) + '|' + nameList[i] + '|' + moneyList[i] + '个BB币|\n'
+                if i == 0:
+                    send += '|----|-------------------------|-------------|\n'
             xc.send_message(send)
         if wList[1] == 'send':
             name = wList[2]
-            money = int(wList[3])
+            money = abs(eval(wList[3]))
             if name not in nameList:
                 xc.send_message('未找到此用户')
             else:
-                if int(moneyList[nameList.index(sender)]) >= money:
-                    moneyList[nameList.index(sender)] = str(int(moneyList[nameList.index(sender)]) - money)
-                    moneyList[nameList.index(name)] = str(int(moneyList[nameList.index(name)]) + money)
+                if eval(moneyList[nameList.index(sender)]) >= money:
+                    moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) - money)
+                    moneyList[nameList.index(name)] = str(eval(moneyList[nameList.index(name)]) + money)
                     xc.send_message('{nick}赠送{money}个BB币给了{name}'.format(nick=sender, money=money, name=name))
                     write_file('money', moneyList)
                 else:
@@ -161,7 +183,7 @@ def message_got(message, sender, trip, online):
         if wList[1] == 'sign':
             if signList[nameList.index(sender)] == '0':
                 signList[nameList.index(sender)] = '1'
-                moneyList[nameList.index(sender)] = str(int(moneyList[nameList.index(sender)]) + 10)
+                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) + 10)
                 write_file('money', moneyList)
                 write_file('sign', signList)
                 xc.send_message('@{name} 签到成功，你获得了10个BB币。'.format(name=sender))
@@ -318,7 +340,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
         if wList[1] == 'shoot' and '&#8238;' not in message:
             if int(moneyList[nameList.index(sender)]) >= 5:
                 shoot = message[10:]
-                moneyList[nameList.index(sender)] = str(int(moneyList[nameList.index(sender)]) - 5)
+                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) - 5)
                 write_file('money', moneyList)
                 shootList = ['打断了Ta的膝盖', '打穿了Ta的胸膛', '打爆了Ta的头盖骨', '但是没打中']
                 if shoot not in protectList:
@@ -478,7 +500,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 if name not in nameList:
                     xc.send_message('未找到此用户')
                 else:
-                    moneyList[nameList.index(name)] = str(int(moneyList[nameList.index(name)]) + int(money))
+                    moneyList[nameList.index(name)] = str(eval(moneyList[nameList.index(name)]) + eval(money))
                     xc.send_message(
                         '@{name} 你收到了我主人发来的{money}个BB币。==输入`.bb money`查看现有资产=='.format(name=name,
                                                                                                            money=money))
@@ -495,7 +517,7 @@ def user_join(nick, trip):
         xc.send_message("Hi, {user}. ".format(user=nick))
         time.sleep(1)
         xc.send_to(nick,
-                   "Hello! I'm BBot and i like BB very much. 发送.bb help查看帮助。==你也可以来我主人手搓的[论坛](https://forum.sqj.repl.co)玩哦！==")
+                   "Hello! I'm BBot and i like BB very much. 发送`.bb help`查看帮助。==你也可以来我主人手搓的[论坛](https://forum.sqj.repl.co)玩哦！==")
     elif trip not in trustTrip:
         send = ''
         for i in range(150):
@@ -538,7 +560,7 @@ def whisper_got(message, nick, trip):
         shoot = message[6:]
         if nick in nameList:
             if int(moneyList[nameList.index(nick)]) >= 1:
-                moneyList[nameList.index(nick)] = str(int(moneyList[nameList.index(nick)]) - 1)
+                moneyList[nameList.index(nick)] = str(eval(moneyList[nameList.index(nick)]) - 1)
                 write_file('money', moneyList)
                 shootList = ['射中了Ta的膝盖', '射穿了Ta的胸膛', '射中了Ta的头盖骨', '但是没射中']
                 if shoot not in protectList:
