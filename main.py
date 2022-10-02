@@ -5,12 +5,14 @@ import XChat  # 引入模块
 import time, random  # 引入模块
 import _thread as thread
 import datetime
+import os, sys
+import traceback
 
 
 def print_text():
     while True:
         time.sleep(1)
-        # print(str(datetime.datetime.now())[17:19])
+        # print(str(datetime.datetime.now()))
         if str(datetime.datetime.now())[17:19] == '00':
             signList = read_file('sign')
             for i in range(len(signList)):
@@ -20,18 +22,16 @@ def print_text():
         if str(datetime.datetime.now())[14:19] == '00:00':
             nameList = read_file('name')
             moneyList = read_file('money')
-            hour = int(str(datetime.datetime.now())[14:16])
-            if hour > 16:
-                bjHour = hour - 16
-            else:
-                bjHour = hour + 8
-            xc.send_message('''.
+            hour = int(str(datetime.datetime.now())[11:13])
+            xc.send_message("""
             定点报时：现在是北京时间{hour}点整！
+            
             欢迎前往我主人的论坛：https://forum.sqj.repl.co/
             也欢迎来我主人的mc服务器：https://mc.sqj.repl.co/
+            
             此外，我还要随机抽取一位幸运观众奖励100个BB币，~~然后踢出。~~
-            '''.format(hour=bjHour))
-            num = random.randint(0, len(nameList)-1)
+            """.format(hour=hour))
+            num = random.randint(0, len(nameList) - 1)
             kick = nameList[num]
             moneyList[num] = str(eval(moneyList[num]) + 100)
             write_file('money', moneyList)
@@ -40,7 +40,6 @@ def print_text():
 
 
 thread.start_new_thread(print_text, ())
-
 
 lockFlag = 0
 
@@ -82,21 +81,24 @@ def words(txt):
 
 # 信息接收处理函数，当有人在公屏上发送信息时，会调用这个。
 # 两个参数分别代表：信息内容和发送者。
-def message_got(message, sender, trip, online):
+def message_got(message, sender, trip, online, w=False):
     for s in online:
         if s[-2:] == '挂机':
             online.remove(s)
     history = read_file('history')
     nameList = read_file('name')
     moneyList = read_file('money')
+    levelList = read_file('level')
     signList = read_file('sign')
     if sender not in nameList:
         nameList.append(sender)
         moneyList.append('0')
         signList.append('0')
+        levelList.append('0')
         write_file('name', nameList)
         write_file('money', moneyList)
         write_file('sign', signList)
+        write_file('level', levelList)
     for a in range(len(moneyList) - 1):
         flag = 0
         for i in range(len(moneyList) - 1 - a):
@@ -104,15 +106,17 @@ def message_got(message, sender, trip, online):
                 moneyList[i], moneyList[i + 1] = moneyList[i + 1], moneyList[i]
                 nameList[i], nameList[i + 1] = nameList[i + 1], nameList[i]
                 signList[i], signList[i + 1] = signList[i + 1], signList[i]
+                levelList[i], levelList[i + 1] = levelList[i + 1], levelList[i]
                 flag = 1
         if flag == 0:
             break
     write_file('name', nameList)
     write_file('money', moneyList)
     write_file('sign', signList)
+    write_file('level', levelList)
     global lockFlag
-    print('收到 [{trip}]{who} 在公屏上发送的信息：{msg}'.format(who=sender, msg=message, trip=trip))
-    history.append('收到 [{trip}]{who} 在公屏上发送的信息：{msg}'.format(who=sender, msg=message, trip=trip))
+    if not w: print('收到 [{trip}]{who} 在公屏上发送的信息：{msg}'.format(who=sender, msg=message, trip=trip))
+    if not w: history.append('收到 [{trip}]{who} 在公屏上发送的信息：{msg}'.format(who=sender, msg=message, trip=trip))
     write_file('history', history)
     wList = words(message)
     modTrip = read_file('mod')
@@ -121,6 +125,7 @@ def message_got(message, sender, trip, online):
     bbi = read_file('bbi')
 
     if message[0:4] == '.bb ':
+        num = nameList.index(sender)
         if wList[1] == 'help':
             xc.send_to(sender, """下列指令可以使用：
             -----User-----
@@ -140,6 +145,8 @@ def message_got(message, sender, trip, online):
             14、.bb sign: 每分钟签到领取10个BB币
             15、.bb send <name> <money>: 送给<name><money>个BB币
             16、.bb most：查看福布斯富豪榜
+            17、.bb level: 查看自己的等级
+            18、.bb update: 花费$2^{level}$个BB币升级
             ----Trust ----
             1、.bb protect <name>: 派出BBI保护<name>免受枪击
             2、.bb cancel <name>: 取消BBI对<name>的保护
@@ -161,42 +168,70 @@ def message_got(message, sender, trip, online):
             2、.bb move <room>: 将机器人移至<room>
             3、/w BBot send <text>: 让机器人发送<text>
             4、.bb give <name> <money>: 给予<name><money>个BB币""")
+        if wList[1] == 'level':
+            level = levelList[num]
+            xc.send_to(sender, '你的等级为{level}级'.format(level=level))
+        if wList[1] == 'update':
+            level = int(levelList[num])
+            if eval(moneyList[num]) >= 2 ** level:
+                moneyList[num] = str(eval(moneyList[num]) - 2 ** level)
+                levelList[num] = str(int(levelList[num]) + 1)
+                write_file('money', moneyList)
+                write_file('level', levelList)
+                xc.send_message('@{name} 你的等级已经升级到了{level}级'.format(name=sender, level=levelList[num]))
+            else:
+                xc.send_message('余额不足')
         if wList[1] == 'most':
-            send = ''
+            send = '|名次|名字|BB币数量|等级|\n|----|-------------------------|-------------|-----|\n'
             for i in range(5):
-                send += '|No.' + str(i + 1) + '|' + nameList[i] + '|' + moneyList[i] + '个BB币|\n'
-                if i == 0:
-                    send += '|----|-------------------------|-------------|\n'
-            xc.send_message(send)
+                send += '|No.' + str(i + 1) + '|' + nameList[i] + '|' + moneyList[i] + '|' + levelList[i] + '|\n'
+            if not w:
+                xc.send_message(send)
+            else:
+                xc.send_to(sender, send)
         if wList[1] == 'send':
             name = wList[2]
             money = abs(eval(wList[3]))
             if name not in nameList:
                 xc.send_message('未找到此用户')
             else:
-                if eval(moneyList[nameList.index(sender)]) >= money:
-                    moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) - money)
+                if eval(moneyList[num]) >= money:
+                    moneyList[num] = str(eval(moneyList[num]) - money)
                     moneyList[nameList.index(name)] = str(eval(moneyList[nameList.index(name)]) + money)
-                    xc.send_message('{nick}赠送{money}个BB币给了{name}'.format(nick=sender, money=money, name=name))
+                    if not w:
+                        xc.send_message('{nick}赠送{money}个BB币给了{name}'.format(nick=sender, money=money, name=name))
+                    else:
+                        xc.send_to(sender,
+                                   '{nick}赠送{money}个BB币给了{name}'.format(nick=sender, money=money, name=name))
                     write_file('money', moneyList)
                 else:
-                    xc.send_message('余额不足')
+                    if not w:
+                        xc.send_message('余额不足')
+                    else:
+                        xc.send_to(sender, '余额不足')
         if wList[1] == 'sign':
-            if signList[nameList.index(sender)] == '0':
-                signList[nameList.index(sender)] = '1'
-                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) + 10)
+            if signList[num] == '0':
+                signList[num] = '1'
+                money = 10 * int(levelList[num])
+                moneyList[num] = str(eval(moneyList[num]) + money)
                 write_file('money', moneyList)
                 write_file('sign', signList)
-                xc.send_message('@{name} 签到成功，你获得了10个BB币。'.format(name=sender))
+                if not w:
+                    xc.send_message('@{name} 签到成功，你获得了{money}个BB币。'.format(name=sender, money=money))
+                else:
+                    xc.send_to(sender, '@{name} 签到成功，你获得了{money}个BB币。'.format(name=sender, money=money))
             else:
-                xc.send_message('@{name} 你已经签到过了'.format(name=sender))
+                if not w:
+                    xc.send_message('@{name} 你已经签到过了'.format(name=sender))
+                else:
+                    xc.send_to(sender, '@{name} 你已经签到过了'.format(name=sender))
         if wList[1] == 'money':
             # print(nameList, sender)
-            money = moneyList[nameList.index(sender)]
+            money = moneyList[num]
             xc.send_to(sender, '您的现有资产为{money}个BB币。'.format(money=money))
         if wList[1] == 'readme':
             xc.send_to(sender, '''.
-# XChat帮助文件（版本：2.20）
+# XChat帮助文件（版本：2.21）
 ###### 更新日期：北京时间 2022-7-25 凌晨
 ## 前言  
 XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它有着艰辛的发展历程。为推动XChat发展，Mr_Zhang特意编写了本帮助文件，希望诸位用户能细细阅读。
@@ -216,7 +251,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
 #### 介绍
 机器人，简称bot，是由其他开发者开发的，可以服务于大家，也可以活跃聊天气氛。机器人开发者可以通过机器人后台控制机器人发送信息。
 #### 机器人列表
-截至北京时间 2022-7-25 凌晨，机器人有：`eebot`、`SuMx_bot`、`Zhang系列Bot`（昵称以`Zhang`开头）、`dotbot`、`zzBot`（常用昵称为`zzChumo`；有时是真人，有时是机器人）、`AfK_Bot`、`ModBot`、`ABot` 等等。
+截至北京时间 2022-7-25 凌晨，机器人有：`BBot`、`eebot`、`SuMx_bot`、`Zhang系列Bot`（昵称以`Zhang`开头）、`dotbot`、`zzBot`（常用昵称为`zzChumo`；有时是真人，有时是机器人）、`AfK_Bot`、`ModBot`、`ABot` 等等。
 ###### 小提示：开发机器人需要向XChat管理员申请token来让机器人跳过验证码。
 ### 发送图片
 #### 介绍
@@ -339,9 +374,9 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 send += s + '，'
             xc.send_to(sender, send[:-1])
         if wList[1] == 'shoot' and '&#8238;' not in message:
-            if int(moneyList[nameList.index(sender)]) >= 5:
+            if eval(moneyList[num]) >= 5:
                 shoot = message[10:]
-                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) - 5)
+                moneyList[num] = str(eval(moneyList[num]) - 5)
                 write_file('money', moneyList)
                 shootList = ['打断了Ta的膝盖', '打穿了Ta的胸膛', '打爆了Ta的头盖骨', '但是没打中']
                 if shoot not in protectList:
@@ -369,7 +404,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 write_file('bbi', bbi)
                 xc.send_message("{name}加入了BBI警卫队".format(name=sender))
                 xc.send_to(sender, "你收到了BBI警卫队发来的100个BB币")
-                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) + 100)
+                moneyList[num] = str(int(moneyList[num]) + 100)
                 write_file('money', moneyList)
             else:
                 xc.send_message("@{name} 你已是BBI警卫队的成员。".format(name=sender))
@@ -379,7 +414,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 write_file('bbi', bbi)
                 xc.send_message("{name}退出了BBI警卫队".format(name=sender))
                 xc.send_to(sender, "你被扣除100个BB币")
-                moneyList[nameList.index(sender)] = str(eval(moneyList[nameList.index(sender)]) - 100)
+                moneyList[num] = str(int(moneyList[num]) - 100)
                 write_file('money', moneyList)
             else:
                 xc.send_message("@{name} 你不是BBI警卫队的成员。".format(name=sender))
@@ -421,9 +456,15 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 xc.send_to(sender, send[:-1])
             if wList[1] == 'lockflag':
                 if lockFlag:
-                    xc.send_message('锁房状态为：开启锁房')
+                    if not w:
+                        xc.send_message('锁房状态为：开启锁房')
+                    else:
+                        xc.send_to(sender, '锁房状态为：开启锁房')
                 else:
-                    xc.send_message('锁房状态为：关闭锁房')
+                    if not w:
+                        xc.send_message('锁房状态为：关闭锁房')
+                    else:
+                        xc.send_to(sender, '锁房状态为：关闭锁房')
             if wList[1] == 'fire':
                 name = wList[2]
                 if name not in bbi:
@@ -587,6 +628,8 @@ def whisper_got(message, nick, trip):
                                                                                                                       len(bbi) - 1)]))
             else:
                 xc.send_message('余额不足')
+    else:
+        message_got(message, nick, trip, xc.online_users, True)
 
 
 # 错误处理函数，当服务器告知客户端有错误时，将会调用这个。
@@ -595,7 +638,7 @@ def kill_errors(info):
 
 
 # xc = XChat.XChat("BlazeRobot", "xq102210", "B1aze", 'ilikebbverymuch')  # 实例化类，要提供4个参数，分别是：机器人的token（请向XChat管理员申请）、聊天室名称、客户端昵称、可选密码。
-xc = XChat.XChat("BlazeRobot", "xq102210", "BBot", 'ilikebbverymuch')
+xc = XChat.XChat("BlazeRobot", "bot", "BBot", 'ilikebbverymuch')
 xc.message_function += [
     message_got]  # message_function 是一个列表，里面存放着信息处理函数。后面的以“_function”结尾的，都是如此。这个列表存放着信息接收函数。每个列表都可以添加多个函数。
 xc.join_function += [user_join]  # 这个列表储存着用户加入处理函数。
@@ -610,5 +653,10 @@ time.sleep(1)
 # print("图片字符串：" + xc.get_image_text("https://xq.kzw.ink/imgs/tx.png"))  # 获取图片字符串，该字符串用来发送图片，参数只有一个，即图像地址
 # xc.send_to("目标","要发送的信息")   #发送私信，需要两个参数，分别是：目标、要发送的信息。
 
-
-xc.run(False)  # 该方法会不停地向服务器请求数据，接收信息，是个死循环。里面有一个参数，布尔值，如果为真，则直接给信息处理函数传递服务器返回的原数据；默认为假。注意：要开始接收信息，必须要有这一行代码！
+try:
+    xc.run(False)  # 该方法会不停地向服务器请求数据，接收信息，是个死循环。里面有一个参数，布尔值，如果为真，则直接给信息处理函数传递服务器返回的原数据；默认为假。注意：要开始接收信息，必须要有这一行代码！
+except:
+    print('机器人运行时一下异常：\n' + traceback.format_exc() + '\n现在重启！')
+    py = sys.executable
+    os.execl(py, py, *sys.argv)
+    os._exit(0)
