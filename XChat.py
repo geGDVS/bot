@@ -33,6 +33,7 @@ class XChat:  # 一个类
         self.send_packet({"cmd": "whisper", "nick": target, "text": msg})
 
     def move(self, new_channel):
+        self.online_users.clear()
         self.channel = new_channel
         self.send_packet({"cmd": "move", "channel": new_channel})
 
@@ -77,6 +78,7 @@ class XChat:  # 一个类
                     else:
                         function(result)
             elif result["cmd"] == "onlineRemove":
+                if self.online_users == []:continue
                 self.online_users.remove(result["nick"])
                 for function in list(self.leave_function):
                     if return_more == False:
@@ -91,9 +93,9 @@ class XChat:  # 一个类
                     if return_more == False:
                         if "from" in result:
                             try:
-                                function(result["text"][len(result["from"]) + 8:], result["from"], result['trip'])
+                                function(result["msg"], result["from"], result['trip'])
                             except:
-                                function(result["text"][len(result["from"]) + 8:], result["from"], '      ')
+                                function(result['msg'], result["from"], '      ')
                     else:
                         function(result)
             elif result["cmd"] == "warn":

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # 远方的开发者，您好！这是一个XChat的测试机器人，使用Python编写。这里面提供了一些实例，供您参考！
@@ -12,23 +13,33 @@ import traceback
 def print_text():
     while True:
         time.sleep(1)
-        # print(str(datetime.datetime.now()))
         if str(datetime.datetime.now())[17:19] == '00':
             signList = read_file('sign')
-            for i in range(len(signList)):
-                signList[i] = '0'
-                # print(signList)
+            moneyList = read_file('money')
+            nameList = read_file('name')
+            protectTrip = read_file('trip_protect')
+            signList = ['0'] * len(signList)
             write_file('sign', signList)
+            for s in protectTrip:
+                num = nameList.index(s)
+                moneyList[num] = str(eval(moneyList[num]) - 0.01)
+            write_file('money', moneyList)
         if str(datetime.datetime.now())[14:19] == '00:00':
             nameList = read_file('name')
             moneyList = read_file('money')
             hour = int(str(datetime.datetime.now())[11:13])
-            xc.send_message("定点报时：现在是北京时间{hour}点整！\n\n欢迎前往我主人的论坛：https://forum.sqj.repl.co/\n也欢迎来我主人的mc服务器：https://mc.sqj.repl.co/\n\n此外，我还要随机抽取一位幸运观众奖励100个BB币，~~然后踢出。~~".format(hour=hour))
+            xc.send_message('''定点报时：现在是北京时间{hour}点整！
+---
+欢迎前往我主人的论坛：https://forum.sqj.repl.co/
+也欢迎来我主人的mc服务器：https://mc.sqj.repl.co/
+---
+此外，我还要随机抽取一位幸运观众奖励==1000==个BB币，~~然后踢出。~~
+'''.format(hour=hour))
             num = random.randint(0, len(nameList) - 1)
             kick = nameList[num]
-            moneyList[num] = str(eval(moneyList[num]) + 100)
+            moneyList[num] = str(eval(moneyList[num]) + 1000)
             write_file('money', moneyList)
-            xc.send_message('这位幸运观众就是{name}!\n@{name} 100个BB币已经汇到你的账户上了'.format(name=kick))
+            xc.send_message('这位幸运观众就是{name}!\n@{name} ==1000==个BB币已经汇到你的账户上了'.format(name=kick))
             xc.send_message('^kick {name}'.format(name=kick))
 
 
@@ -38,7 +49,7 @@ lockFlag = 0
 
 
 def read_file(file):
-    f = open(file, 'r')
+    f = open(file, 'r', encoding='utf-8')
     List = f.readlines()
     f.close()
     for i in range(len(List)):
@@ -76,22 +87,37 @@ def words(txt):
 # 两个参数分别代表：信息内容和发送者。
 def message_got(message, sender, trip, online, w=False):
     for s in online:
-        if s[-2:] == '挂机':
+        if s[-2:] == '挂机' or s == 'BBot':
             online.remove(s)
     history = read_file('history')
     nameList = read_file('name')
     moneyList = read_file('money')
     levelList = read_file('level')
     signList = read_file('sign')
+    tripList = read_file('trip')
+    tripProtect = read_file('trip_protect')
+    while len(tripList) < len(nameList):
+        tripList.append('NaN')
+    write_file('trip', tripList)
     if sender not in nameList:
         nameList.append(sender)
         moneyList.append('0')
         signList.append('0')
         levelList.append('0')
+        tripList.append(trip)
         write_file('name', nameList)
         write_file('money', moneyList)
         write_file('sign', signList)
         write_file('level', levelList)
+        write_file('trip', tripList)
+    num = nameList.index(sender)
+    if tripList[num] != trip:
+        if sender not in tripProtect:
+            tripList[num] = trip
+            write_file('trip', tripList)
+        else:
+            xc.send_message('@{name} 你的识别码已绑定[{trip}]，所以你可能是冒牌货，一路走好！'.format(name=sender, trip=tripList[num]))
+            xc.send_to('ZhangHelper', '^kick <name>'.format(name=sender))
     for a in range(len(moneyList) - 1):
         flag = 0
         for i in range(len(moneyList) - 1 - a):
@@ -100,6 +126,7 @@ def message_got(message, sender, trip, online, w=False):
                 nameList[i], nameList[i + 1] = nameList[i + 1], nameList[i]
                 signList[i], signList[i + 1] = signList[i + 1], signList[i]
                 levelList[i], levelList[i + 1] = levelList[i + 1], levelList[i]
+                tripList[i], tripList[i + 1] = tripList[i + 1], tripList[i]
                 flag = 1
         if flag == 0:
             break
@@ -107,6 +134,7 @@ def message_got(message, sender, trip, online, w=False):
     write_file('money', moneyList)
     write_file('sign', signList)
     write_file('level', levelList)
+    write_file('trip', tripList)
     global lockFlag
     if not w:
         print('收到 [{trip}]{who} 在公屏上发送的信息：{msg}'.format(who=sender, msg=message, trip=trip))
@@ -119,8 +147,16 @@ def message_got(message, sender, trip, online, w=False):
     bbi = read_file('bbi')
 
     if message[0:4] == '.bb ':
-        num = nameList.index(sender)
         if wList[1] == 'help':
+            if trip == 'F1n+S1':
+                yId = 'Admin'
+            elif trip in modTrip:
+                yId = 'Mod'
+            elif trip in trustTrip:
+                yId = 'Trust'
+            else:
+                yId = 'User'
+            xc.send_to(sender, '你的身份: {id}'.format(id=yId))
             xc.send_to(sender, """.
 下列指令可以使用：
 -----User-----
@@ -144,6 +180,9 @@ def message_got(message, sender, trip, online, w=False):
 18、.bb upgrade: 花费==$2^{level}$==个BB币升级
 19、.bb readbot：查看BBot使用守则
 20、.bb buy trust: 花费==50000==个BB币购买信任用户权限
+21、.bb protectme: 申请保护盗号（首付==100==个BB币，后每分钟==0.01==个BB币）
+22、.bb giveup: 取消保护盗号
+23、.bb look: 查看申请保护盗号的用户
 ----Trust ----
 1、.bb protect <name>: 派出BBI保护<name>免受枪击
 2、.bb cancel <name>: 取消BBI对<name>的保护
@@ -164,10 +203,35 @@ def message_got(message, sender, trip, online, w=False):
 1、.bb nick <name>: 更换名称为<name>
 2、.bb move <room>: 将机器人移至<room>
 3、/w BBot send <text>: 让机器人发送<text>
-4、.bb give <name> <money>: 给予<name><money>个BB币""")
+4、.bb give <name> <money>: 给予<name><money>个BB币
+5、.bb check <name>: 查看<name>的资产""")
+        if wList[1] == 'protectme':
+            if eval(moneyList[num]) >= 100:
+                moneyList[num] = str(eval(moneyList[num]) - 100)
+                write_file('money', moneyList)
+                if sender not in tripProtect:
+                    tripProtect.append(sender)
+                    write_file('trip_protect', tripProtect)
+                    xc.send_message('@{name} 申请成功！'.format(name=sender))
+                else:
+                    xc.send_message('@{name} 你早已经被保护了！不过放心，我不会退钱的。'.format(name=sender))
+            else:
+                xc.send_message('余额不足！')
+        if wList[1] == 'giveup':
+            if sender in tripProtect:
+                tripProtect.remove(sender)
+                write_file('trip_protect', tripProtect)
+                xc.send_message('@{name} 取消成功！'.format(name=sender))
+            else:
+                xc.send_message('@{name} 你又没有被保护，取消个屁啊！'.format(name=sender))
+        if wList[1] == 'look':
+            send = '受保护的用户有：`'
+            for s in tripProtect:
+                send += s + '`，`'
+            xc.send_message(send[:-2])
         if wList[1] == 'readbot':
             xc.send_to(sender, '''.
-# BBot帮助文件（版本：0.90）
+# BBot帮助文件（版本：1.00）
 ###### 更新日期：北京时间 2022-10-3 傍晚
 ## 前言  
 BBot，是一个基于XChat聊天平台的机器人，由Blaze编写。它有着艰辛的发展历程。为推动XChat发展，Blaze特意编写了本帮助文件，希望诸位用户能细细阅读。
@@ -184,12 +248,14 @@ BBot的识别码一般为BBking，昵称为BBot。
 ### 如何升级
 发送`.bb upgrade`，每次升级所需的BB币为2的现有等级次方。
 ###### 小提示：一开始等级为0，这是无论如何签到所获BB币的数量均为==0==，所以需要先加入BBI警卫队获取初始资金进行升级！！！
+## 保护自己免受盗号
+发送`.bb protectme`，先得付款100个BB币，后每分钟收取0.01个BB币的保护费。
+如想取消，发送`.bb giveup`。
 ## 高风险行为
 ### 禁止
 1. 开多个账号同时加入BBI
-2. 盗用他人账号
-3. 轰炸BBot
-4. 使用机器人在==?xq102210==公屏上发送大量签到（建议私信或前往==?bot==）
+2. 轰炸BBot
+3. 使用机器人在`?xq102210`公屏上发送大量签到（建议私信或前往`?bot`）
 
 ### 不建议（在某些情况下，可能会被管理员当作违规处理）
 1. 同时加入多个签到机器人
@@ -272,7 +338,6 @@ BBot的识别码一般为BBking，昵称为BBot。
                 else:
                     xc.send_to(sender, '@{name} 你已经签到过了'.format(name=sender))
         if wList[1] == 'money':
-            # print(nameList, sender)
             money = moneyList[num]
             if w:
                 xc.send_to(sender, '您的现有资产为{money}个BB币。'.format(money=money))
@@ -421,7 +486,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
             send = '在线用户有：`'
             for s in online:
                 send += s + '`，`'
-            xc.send_to(sender, send[:-2])
+            xc.send_message(send[:-2])
         if wList[1] == 'shoot' and '&#8238;' not in message:
             if eval(moneyList[num]) >= 50:
                 shoot = message[10:]
@@ -476,7 +541,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
             send = 'BBI警卫队的成员有：`'
             for s in bbi:
                 send += s + '`，`'
-            xc.send_to(sender, send[:-2])
+            xc.send_message(send[:-2])
         if wList[1] == 'rkick':
             if w:
                 xc.send_to(sender, 'emmm，私信踢人是非常卑鄙的，有本事你就直接发出来啊！')
@@ -529,7 +594,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 send = 'BBI的保护名单是：'
                 for s in protectList:
                     send += s + '，'
-                xc.send_to(sender, send[:-1])
+                xc.send_message(send[:-1])
             if wList[1] == 'lockflag':
                 if lockFlag:
                     if not w:
@@ -593,7 +658,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 send = '拥有本机器人额外使用权的用户有：'
                 for s in modTrip:
                     send += '[' + s + '] '
-                xc.send_to(sender, send)
+                xc.send_message(send)
             if wList[1] == 'trust':
                 trust = wList[2]
                 if trust not in trustTrip:
@@ -614,7 +679,7 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                 send = '信任的用户有：'
                 for s in trustTrip:
                     send += '[' + s + '] '
-                xc.send_to(sender, send)
+                xc.send_message(send)
         if trip == 'F1n+S1':
             if wList[1] == 'nick':
                 nick = wList[2]
@@ -634,6 +699,13 @@ XChat，是一款由Hack.Chat改变的聊天平台，由线圈团队编写。它
                         '@{name} 你收到了我主人发来的{money}个BB币。==输入`.bb readbot`查看如何使用BB币=='.format(name=name,
                                                                                                            money=money))
                     write_file('money', moneyList)
+            if wList[1] == 'check':
+                name = wList[2]
+                if name in nameList:
+                    money = moneyList[nameList.index(name)]
+                    xc.send_message('{name}的资产为{money}个BB币'.format(name=name, money=money))
+                else:
+                    xc.send_message('未找到此用户！')
 
 
 # 用户加入处理函数，当有人加入当前聊天室，会调用这个。
@@ -714,7 +786,7 @@ def kill_errors(info):
 
 
 # xc = XChat.XChat("BlazeRobot", "xq102210", "BBot", '080314')  # 实例化类，要提供4个参数，分别是：机器人的token（请向XChat管理员申请）、聊天室名称、客户端昵称、可选密码。
-xc = XChat.XChat("BlazeRobot", "testbbot", "BBot", '080314')
+xc = XChat.XChat("BlazeRobot", "xq102210", "BBot", '080314')
 xc.message_function += [
     message_got]  # message_function 是一个列表，里面存放着信息处理函数。后面的以“_function”结尾的，都是如此。这个列表存放着信息接收函数。每个列表都可以添加多个函数。
 xc.join_function += [user_join]  # 这个列表储存着用户加入处理函数。
